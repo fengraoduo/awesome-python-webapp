@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#http://blog.csdn.net/u011998917/article/details/43796075
 __author__="michelle"
 
 '''
@@ -42,11 +42,14 @@ class Dict(dict):
 	>>>d3.c
 	3
 	'''
+
+	#zip()依次取出每一个数组的元素，然后组合
 	def __init__(self,name=(),values=(),**kw):
 		super(Dict,self).__init__(**kw)
 		for k,v in zip(names,values):
 			self[k]=v
-	    def __getattr__(self, key):
+
+	def __getattr__(self, key):
         try:
             return self[key]
         except KeyError:
@@ -103,6 +106,7 @@ class _LasyConnection(object):
             logging.info('close connection <%s>...' % hex(id(connection)))
             connection.close()
 
+#使每个连接是每个线程拥有的，其它线程不能访问
 class _DbCtx(threading.local):
     '''
     Thread local object that holds connection info.
@@ -150,8 +154,10 @@ def create_engine(user, password, database, host='127.0.0.1', port=3306, **kw):
         raise DBError('Engine is already initialized.')
     params = dict(user=user, password=password, database=database, host=host, port=port)
     defaults = dict(use_unicode=True, charset='utf8', collation='utf8_general_ci', autocommit=False)
+    #iteritems()迭代输出字典的键值对  pop()从列表中移除并返回最后一个对象或者obj
     for k, v in defaults.iteritems():
         params[k] = kw.pop(k, v)
+
     params.update(kw)
     params['buffered'] = True
     engine = _Engine(lambda: mysql.connector.connect(**params))
@@ -468,3 +474,6 @@ if __name__=='__main__':
     update('create table user (id int primary key, name text, email text, passwd text, last_modified real)')
     import doctest
     doctest.testmod()
+
+
+#fuyfgukg
