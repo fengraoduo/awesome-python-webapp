@@ -180,6 +180,13 @@ def create_engine(user, password, database, host='127.0.0.1', port=3306, **kw):
 
     '''''===================以上通过engine这个全局变量就可以获得一个数据库链接，重复链接抛异常=============================''' 
 
+
+#通过with语句让数据库链接可以自动创建和关闭  
+    ''''' 
+    with 语句： 
+     with 后面的语句会返回 _ConnectionCtx 对象 然后调用这个对象的 __enter__方法得到返回值 返回值赋值给as后面的变量 然后执行 
+     with下面的语句 执行完毕后 调用那个对象的 __exit__()方法 
+    '''  
 class _ConnectionCtx(object):
     '''
     定义了__enter__()和__exit__()的对象可以用于with语句，确保任何情况下__exit__()方法可以被调用.实现数据库连接的上下文，目的是自动获取和释放连接。_ConnectionCtx object can be nested and only the most 
@@ -210,6 +217,7 @@ def connection():
     '''
     return _ConnectionCtx()
 
+#采用装饰器的方法 让其能够进行共用同一个数据库连接  
 def with_connection(func):
     '''
     Decorator for reuse connection.
@@ -490,6 +498,4 @@ if __name__=='__main__':
     update('create table user (id int primary key, name text, email text, passwd text, last_modified real)')
     import doctest
     doctest.testmod()
-
-
-#fuyfgukg
+    
