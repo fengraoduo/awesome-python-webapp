@@ -1,66 +1,59 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#http://blog.csdn.net/u011998917/article/details/43796075
-__author__="michelle"
+
+__author__ = 'Michael Liao'
 
 '''
-database operation module.
+Database operation module.
 '''
 
-import time,uuid,functools,threading,logging
+import time, uuid, functools, threading, logging
 
-#Dict object:
+# Dict object:
 
 class Dict(dict):
-#文档测试,模块正常导入时不会执行，命令行运行时（测试环境）才执行
-	'''
-	Simple dict but support access as x.y style
+    '''
+    Simple dict but support access as x.y style.
+    >>> d1 = Dict()
+    >>> d1['x'] = 100
+    >>> d1.x
+    100
+    >>> d1.y = 200
+    >>> d1['y']
+    200
+    >>> d2 = Dict(a=1, b=2, c='3')
+    >>> d2.c
+    '3'
+    >>> d2['empty']
+    Traceback (most recent call last):
+        ...
+    KeyError: 'empty'
+    >>> d2.empty
+    Traceback (most recent call last):
+        ...
+    AttributeError: 'Dict' object has no attribute 'empty'
+    >>> d3 = Dict(('a', 'b', 'c'), (1, 2, 3))
+    >>> d3.a
+    1
+    >>> d3.b
+    2
+    >>> d3.c
+    3
+    '''
+    def __init__(self, names=(), values=(), **kw):
+        super(Dict, self).__init__(**kw)
+        for k, v in zip(names, values):
+            self[k] = v
 
-	>>>d1=Dict()
-	>>>d1['x']=100
-	>>>d1.x
-	100
-	>>>d1.y=200
-	>>>d1['y']
-	200
-	>>>d2=Dict(a=1,b=2,c='3')
-	>>>d2.c
-	'3'
-	>>>d2['empty']
-	Traceback(most recent call last):
-		...
-	KeyError:'empty'
-	>>>d2.empty
-	Traceback(most recent call last):
-		...
-	AttributeError:'Dict' object has no attribute 'empty'
-	>>>d3=Dict(('a','b','c'),(1,2,3))
-	>>>d3.a
-	1
-	>>>d3.b
-	2
-	>>>d3.c
-	3
-	'''
-
-	#zip()依次取出每一个数组的元素，然后组合
-	def __init__(self,name=(),values=(),**kw):
-		super(Dict,self).__init__(**kw)#调用父类的构造方法
-		for k,v in zip(names,values):
-			self[k]=v
-
-    #__getattr__ 相当于新增加的get方法 如果对象调用的属性不存在的时候 解释器就会尝试从__getattr__()方法获得属性的值。
-	def __getattr__(self, key): 
+    def __getattr__(self, key):
         try:
             return self[key]
         except KeyError:
             raise AttributeError(r"'Dict' object has no attribute '%s'" % key)
-    
-    # __setattr__ 相当于新增加set方法 
+
     def __setattr__(self, key, value):
         self[key] = value
 
-#method next_id() uuid4()  make a random UUID 得到一个随机的UUID 如果没有传入参数根据系统当前时间15位和一个随机得到的UUID 填充3个0 组成一个长度为50的字符串 
 def next_id(t=None):
     '''
     Return next id as 50-char string.
@@ -71,9 +64,7 @@ def next_id(t=None):
         t = time.time()
     return '%015d%s000' % (int(t * 1000), uuid.uuid4().hex)
 
-#method _profiling 记录sql 的运行状态
 def _profiling(start, sql=''):
-    #单下划线开头的方法名或者属性 不会再 from moduleName import * 中被导入 也就是说只有本模块中可以访问 
     t = time.time() - start
     if t > 0.1:
         logging.warning('[PROFILING] [DB] %s: %s' % (t, sql))
@@ -86,7 +77,6 @@ class DBError(Exception):
 class MultiColumnsError(DBError):
     pass
 
-#对数据库连接以及最基本的操作进行了封装
 class _LasyConnection(object):
 
     def __init__(self):
@@ -112,7 +102,6 @@ class _LasyConnection(object):
             logging.info('close connection <%s>...' % hex(id(connection)))
             connection.close()
 
-#使每个连接是每个线程拥有的，其它线程不能访问;解决对于不同的线程数据库链接应该是不一样的 于是创建一个变量  是一个threadlocal 对象
 class _DbCtx(threading.local):
     '''
     Thread local object that holds connection info.
@@ -122,11 +111,11 @@ class _DbCtx(threading.local):
         self.transactions = 0
 
     def is_init(self):
-        return not self.connection is None #判断是否已经进行了初始化
+        return not self.connection is None
 
     def init(self):
         logging.info('open lazy connection...')
-        self.connection = _LasyConnection()#打开一个数据库链接
+        self.connection = _LasyConnection()
         self.transactions = 0
 
     def cleanup(self):
@@ -140,11 +129,9 @@ class _DbCtx(threading.local):
         return self.connection.cursor()
 
 # thread-local db context:
-#由于它继承threading.local是一个threadlocal对象所以它对于每一个线程都是不一样的。  
-#所以当需要数据库连接的时候就使用它来创建   通过_db_ctx就可以打开和关闭链接
 _db_ctx = _DbCtx()
 
-#global engine object  保存着mysql数据库的连接 
+# global engine object:
 engine = None
 
 class _Engine(object):
@@ -156,40 +143,23 @@ class _Engine(object):
         return self._connect()
 
 def create_engine(user, password, database, host='127.0.0.1', port=3306, **kw):
-    import mysql.connector#导入mysql模块
-    global engine#global关键字 说明这个变量在外部定义了，这是一个全局变量
+    import mysql.connector
+    global engine
     if engine is not None:
         raise DBError('Engine is already initialized.')
-        #如果连接已存在表示连接重复，则抛出一个数据库异常
     params = dict(user=user, password=password, database=database, host=host, port=port)
-        #保存了数据库的连接信息
     defaults = dict(use_unicode=True, charset='utf8', collation='utf8_general_ci', autocommit=False)
-    #保存了连接的设置、编码等
-    #iteritems()迭代输出字典的键值对  pop()从列表中移除并返回最后一个对象或者obj
     for k, v in defaults.iteritems():
-    #将defaults和kw中的键值对保存到params中 如果有一个key两边都存在那么保存kw的
         params[k] = kw.pop(k, v)
-        #pop函数会将key为k的键值对删除并且返回k对应的value 如果k在kw中不存在，那么将会返回v  
-
     params.update(kw)
     params['buffered'] = True
     engine = _Engine(lambda: mysql.connector.connect(**params))
-    #在这里(lambda:mysql.connector.connect(**params))返回的是一个函数而不是一个connection对象
     # test connection...
     logging.info('Init mysql engine <%s> ok.' % hex(id(engine)))
 
-    '''''===================以上通过engine这个全局变量就可以获得一个数据库链接，重复链接抛异常=============================''' 
-
-
-#通过with语句让数据库链接可以自动创建和关闭  
-    ''''' 
-    with 语句： 
-     with 后面的语句会返回 _ConnectionCtx 对象 然后调用这个对象的 __enter__方法得到返回值 返回值赋值给as后面的变量 然后执行 
-     with下面的语句 执行完毕后 调用那个对象的 __exit__()方法 
-    '''  
 class _ConnectionCtx(object):
     '''
-    定义了__enter__()和__exit__()的对象可以用于with语句，确保任何情况下__exit__()方法可以被调用.实现数据库连接的上下文，目的是自动获取和释放连接。_ConnectionCtx object can be nested and only the most 
+    _ConnectionCtx object that can open and close connection context. _ConnectionCtx object can be nested and only the most 
     outer connection has effect.
     with connection():
         pass
@@ -217,7 +187,6 @@ def connection():
     '''
     return _ConnectionCtx()
 
-#采用装饰器的方法 让其能够进行共用同一个数据库连接  
 def with_connection(func):
     '''
     Decorator for reuse connection.
@@ -498,4 +467,3 @@ if __name__=='__main__':
     update('create table user (id int primary key, name text, email text, passwd text, last_modified real)')
     import doctest
     doctest.testmod()
-    
